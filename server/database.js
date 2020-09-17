@@ -1,5 +1,3 @@
-const properties = require('./json/properties.json');
-const users = require('./json/users.json');
 const { Pool } = require('pg');
 
 const pool = new Pool({
@@ -57,12 +55,14 @@ module.exports = {
   getAllReservations: function (guest_id, limit = 10) {
     return pool
       .query(
-        `SELECT 
-        * 
-      FROM reservations 
-        JOIN properties ON property_id = properties.id
-        WHERE guest_id = $1
-        LIMIT $2;
+        ` SELECT reservations.*, properties.*, AVG(property_reviews.rating) as average_rating
+        FROM reservations
+          JOIN properties ON reservations.property_id = properties.id
+          JOIN property_reviews ON properties.id = property_reviews.property_id
+        WHERE reservations.guest_id = $1 AND end_date < NOW()::date
+        GROUP BY reservations.id, properties.id
+        ORDER BY start_date
+        LIMIT $2
       `,
         [guest_id, limit]
       )
@@ -145,7 +145,7 @@ module.exports = {
       number_of_bedrooms,
     } = property;
 
-    // set value to 0  if not received
+    // set value to 0 if not received
     cost_per_night ? cost_per_night : (cost_per_night = 0);
     parking_spaces ? parking_spaces : (parking_spaces = 0);
     number_of_bathrooms ? number_of_bathrooms : (number_of_bathrooms = 0);
